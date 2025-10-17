@@ -1,26 +1,24 @@
 <#
 .SYNOPSIS
     Windows Ultimate Debloater - Maximum Performance Edition
-
 .DESCRIPTION
     Aggressively removes all Windows bloatware, telemetry, and unnecessary components
     for maximum system performance. Use with caution!
-
-.PARAMETER RemoveStore
-    Removes Microsoft Store along with all other bloatware
-
-.PARAMETER NoRestorePoint
-    Does not create a system restore point (not recommended but available)
-
-.EXAMPLE
-    irm https://raw.githubusercontent.com/YourUsername/YourRepo/main/windows-debloater.ps1 | iex -RemoveStore -NoRestorePoint
 #>
 
-[CmdletBinding()]
-param(
-    [switch]$RemoveStore,
-    [switch]$NoRestorePoint
-)
+# Parse parameters from command line when using irm | iex
+$RemoveStore = $false
+$NoRestorePoint = $false
+
+# Check command line arguments
+foreach ($arg in $args) {
+    if ($arg -eq "-RemoveStore" -or $arg -eq "RemoveStore") {
+        $RemoveStore = $true
+    }
+    if ($arg -eq "-NoRestorePoint" -or $arg -eq "NoRestorePoint") {
+        $NoRestorePoint = $true
+    }
+}
 
 # Function to write colored output
 function Write-ColorOutput {
@@ -43,6 +41,10 @@ function Invoke-Debloat {
     Write-ColorOutput "- Telemetry and data collection services" "Yellow"
     Write-ColorOutput "- Cortana, OneDrive, Xbox, and much more" "Yellow"
     Write-ColorOutput "USE AT YOUR OWN RISK! CREATE A SYSTEM RESTORE POINT FIRST!" "Red"
+
+    Write-ColorOutput "`nParameters detected:" "Cyan"
+    Write-ColorOutput "- RemoveStore: $RemoveStore" "Cyan"
+    Write-ColorOutput "- NoRestorePoint: $NoRestorePoint" "Cyan"
 
     # Countdown for safety
     Write-ColorOutput "`nScript will continue in 5 seconds... Press Ctrl+C to abort!" "Yellow"
@@ -153,7 +155,7 @@ function Invoke-Debloat {
         "Royal Revolt*"
     )
 
-    # Remove conditionally based on -RemoveStore flag
+    # Remove conditionally based on $RemoveStore flag
     if ($RemoveStore) {
         Write-ColorOutput "Removing Microsoft Store and all bloatware..." "Red"
         Remove-AppxPackageBulk -AppList $BloatwareApps
