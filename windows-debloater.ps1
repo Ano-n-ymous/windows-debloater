@@ -1,256 +1,118 @@
 <#
 .SYNOPSIS
-    Windows Ultimate Debloater - Maximum Performance Edition
+    Windows Ultimate Debloater
 .DESCRIPTION
-    Aggressively removes all Windows bloatware, telemetry, and unnecessary components
-    for maximum system performance. Use with caution!
+    Run directly: irm https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/debloater.ps1 | iex
 #>
 
+# Bypass execution policy
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
+# Get the full command line that invoked this script
+$fullCommand = [Environment]::CommandLine
+
 # Parse parameters from command line
-$RemoveStore = $false
-$NoRestorePoint = $false
+$RemoveStore = $fullCommand -match "-RemoveStore"
+$NoRestorePoint = $fullCommand -match "-NoRestorePoint"
 
-foreach ($arg in $args) {
-    if ($arg -eq "-RemoveStore") { $RemoveStore = $true }
-    if ($arg -eq "-NoRestorePoint") { $NoRestorePoint = $true }
+Write-Host "=== WINDOWS ULTIMATE DEBLOATER ===" -ForegroundColor Red
+Write-Host "Parameters detected:" -ForegroundColor Cyan
+Write-Host "RemoveStore: $RemoveStore" -ForegroundColor Cyan
+Write-Host "NoRestorePoint: $NoRestorePoint" -ForegroundColor Cyan
+
+# Admin check
+if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "ERROR: Run as Administrator!" -ForegroundColor Red
+    Write-Host "Right-click PowerShell and 'Run as Administrator'" -ForegroundColor Yellow
+    timeout /t 5
+    exit
 }
 
-# Function to write colored output
-function Write-ColorOutput {
-    param([string]$Message, [string]$Color = "White")
-    Write-Host $Message -ForegroundColor $Color
+# Countdown
+Write-Host "`nStarting in 3 seconds..." -ForegroundColor Yellow
+Start-Sleep -Seconds 3
+
+# Create restore point
+if (-not $NoRestorePoint) {
+    Write-Host "Creating system restore point..." -ForegroundColor Green
+    try {
+        Checkpoint-Computer -Description "Pre-Debloat" -RestorePointType MODIFY_SETTINGS
+        Write-Host "Restore point created!" -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to create restore point" -ForegroundColor Red
+    }
 }
 
-# Main execution block
-function Invoke-Debloat {
-    # Require Administrator privileges
-    if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-        Write-ColorOutput "This script requires Administrator privileges. Please run PowerShell as Administrator." "Red"
-        exit 1
-    }
+# Remove bloatware apps
+Write-Host "`nRemoving bloatware apps..." -ForegroundColor Yellow
 
-    Write-ColorOutput "=== WINDOWS ULTIMATE DEBLOATER - MAXIMUM PERFORMANCE ===" "Red"
-    Write-ColorOutput "THIS IS AN AGGRESSIVE DEBLOATER THAT WILL REMOVE:" "Yellow"
-    Write-ColorOutput "- All pre-installed Windows apps (except essentials)" "Yellow"
-    Write-ColorOutput "- Microsoft Store (if -RemoveStore specified)" "Yellow"
-    Write-ColorOutput "- Telemetry and data collection services" "Yellow"
-    Write-ColorOutput "- Cortana, OneDrive, Xbox, and much more" "Yellow"
-    Write-ColorOutput "USE AT YOUR OWN RISK! CREATE A SYSTEM RESTORE POINT FIRST!" "Red"
+$apps = @(
+    "Microsoft.BingWeather",
+    "Microsoft.GetHelp", 
+    "Microsoft.Getstarted",
+    "Microsoft.MicrosoftSolitaireCollection",
+    "Microsoft.People",
+    "Microsoft.WindowsCamera",
+    "Microsoft.WindowsFeedbackHub",
+    "Microsoft.WindowsMaps",
+    "Microsoft.WindowsSoundRecorder",
+    "Microsoft.XboxApp",
+    "Microsoft.XboxIdentityProvider",
+    "Microsoft.XboxSpeechToTextOverlay",
+    "Microsoft.YourPhone",
+    "Microsoft.ZuneMusic",
+    "Microsoft.ZuneVideo",
+    "Microsoft.BingNews",
+    "Microsoft.BingSports",
+    "Microsoft.SkypeApp",
+    "Microsoft.Teams"
+)
 
-    Write-ColorOutput "`nParameters detected:" "Cyan"
-    Write-ColorOutput "- RemoveStore: $RemoveStore" "Cyan"
-    Write-ColorOutput "- NoRestorePoint: $NoRestorePoint" "Cyan"
-
-    # Countdown for safety
-    Write-ColorOutput "`nScript will continue in 5 seconds... Press Ctrl+C to abort!" "Yellow"
-    for ($i = 5; $i -gt 0; $i--) {
-        Write-ColorOutput "Starting in $i..." "Yellow"
-        Start-Sleep -Seconds 1
-    }
-
-    if (-not $NoRestorePoint) {
-        Write-ColorOutput "`nCreating system restore point..." "Green"
-        try {
-            Checkpoint-Computer -Description "Pre-Windows-Debloater" -RestorePointType "MODIFY_SETTINGS"
-            Write-ColorOutput "Restore point created successfully." "Green"
-        }
-        catch {
-            Write-Warning "Failed to create restore point. Continuing anyway..."
-        }
-    }
-
-    # Function to remove apps
-    function Remove-AppxPackageBulk {
-        param($AppList)
-        
-        foreach ($App in $AppList) {
-            try {
-                Get-AppxPackage -Name $App -AllUsers | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
-                Get-AppxProvisionedPackage -Online | Where-Object {$_.PackageName -like "*$App*"} | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-                Write-ColorOutput "Removed: $App" "Green"
-            }
-            catch {
-                Write-Warning "Failed to remove: $App"
-            }
-        }
-    }
-
-    # Function to disable services
-    function Disable-ServiceBulk {
-        param($ServiceList)
-        
-        foreach ($Service in $ServiceList) {
-            try {
-                Stop-Service -Name $Service -Force -ErrorAction SilentlyContinue
-                Set-Service -Name $Service -StartupType Disabled -ErrorAction SilentlyContinue
-                Write-ColorOutput "Disabled service: $Service" "Yellow"
-            }
-            catch {
-                Write-Warning "Could not disable service: $Service"
-            }
-        }
-    }
-
-    # COMPREHENSIVE BLOATWARE REMOVAL LIST
-    Write-ColorOutput "`n[1/6] REMOVING PRE-INSTALLED APPS..." "Cyan"
-
-    $BloatwareApps = @(
-        # Microsoft Store and related (conditional removal)
-        "Microsoft.WindowsStore",
-        "Microsoft.StorePurchaseApp",
-        "Microsoft.Services.Store.Engagement",
-        
-        # Communication & Social
-        "Microsoft.People",
-        "Microsoft.SkypeApp",
-        "Microsoft.Teams",
-        "Facebook",
-        "Twitter",
-        "Instagram", 
-        "Spotify",
-        
-        # Entertainment
-        "Microsoft.ZuneMusic",
-        "Microsoft.ZuneVideo",
-        "Microsoft.WindowsSoundRecorder",
-        "Microsoft.MicrosoftSolitaireCollection",
-        "Microsoft.BingWeather",
-        "Microsoft.BingNews",
-        "Microsoft.BingSports",
-        "Microsoft.Getstarted",
-        "Microsoft.GetHelp",
-        
-        # Xbox
-        "Microsoft.XboxApp",
-        "Microsoft.XboxGamingOverlay",
-        "Microsoft.XboxGameOverlay",
-        "Microsoft.XboxIdentityProvider",
-        "Microsoft.XboxSpeechToTextOverlay",
-        "Microsoft.XboxTCUI",
-        
-        # Cortana
-        "Microsoft.549981C3F5F10",
-        "Microsoft.Cortana",
-        
-        # Other Microsoft
-        "Microsoft.WindowsCamera",
-        "Microsoft.WindowsMaps",
-        "Microsoft.WindowsAlarms",
-        "Microsoft.WindowsCalculator",
-        "Microsoft.WindowsFeedbackHub",
-        "Microsoft.MSPaint",
-        "Microsoft.Microsoft3DViewer",
-        "Microsoft.MixedReality.Portal",
-        
-        # Third-party bloat
-        "AdobeSystemsIncorporated.AdobePhotoshopExpress",
-        "CandyCrush",
-        "Disney",
-        "Netflix",
-        "Royal Revolt"
-    )
-
-    # Remove conditionally based on $RemoveStore flag
-    if ($RemoveStore) {
-        Write-ColorOutput "Removing Microsoft Store and all bloatware..." "Red"
-        Remove-AppxPackageBulk -AppList $BloatwareApps
-    } else {
-        Write-ColorOutput "Removing all bloatware except Microsoft Store..." "Yellow"
-        $AppsWithoutStore = $BloatwareApps | Where-Object { $_ -notlike "*WindowsStore*" -and $_ -notlike "*StorePurchase*" -and $_ -notlike "*Services.Store*" }
-        Remove-AppxPackageBulk -AppList $AppsWithoutStore
-    }
-
-    # TELEMETRY AND DATA COLLECTION
-    Write-ColorOutput "`n[2/6] DISABLING TELEMETRY AND DATA COLLECTION..." "Cyan"
-
-    $TelemetryKeys = @(
-        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection",
-        "HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\System"
-    )
-
-    foreach ($Key in $TelemetryKeys) {
-        try {
-            if (!(Test-Path $Key)) { New-Item -Path $Key -Force | Out-Null }
-            Set-ItemProperty -Path $Key -Name "AllowTelemetry" -Type DWord -Value 0
-            Write-ColorOutput "Disabled telemetry: $Key" "Green"
-        }
-        catch { 
-            Write-Warning "Could not disable telemetry at: $Key"
-        }
-    }
-
-    # SERVICES DISABLING
-    Write-ColorOutput "`n[3/6] DISABLING UNNECESSARY SERVICES..." "Cyan"
-
-    $ServicesToDisable = @(
-        "DiagTrack",
-        "dmwappushservice", 
-        "WSearch",
-        "XboxGipSvc",
-        "XboxNetApiSvc",
-        "lfsvc",
-        "MapsBroker"
-    )
-
-    Disable-ServiceBulk -ServiceList $ServicesToDisable
-
-    # ONEDRIVE COMPLETE REMOVAL
-    Write-ColorOutput "`n[4/6] REMOVING ONEDRIVE..." "Cyan"
-
-    try {
-        Write-ColorOutput "Stopping OneDrive processes..." "Yellow"
-        taskkill /f /im OneDrive.exe /t 2>&1 | Out-Null
-        Start-Sleep -Seconds 2
-        
-        Write-ColorOutput "Removing OneDrive files..." "Yellow"
-        Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$env:USERPROFILE\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$env:PROGRAMDATA\Microsoft OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-        
-        Write-ColorOutput "OneDrive removed completely" "Green"
-    }
-    catch {
-        Write-Warning "OneDrive removal partially failed: $($_.Exception.Message)"
-    }
-
-    # PERFORMANCE OPTIMIZATIONS
-    Write-ColorOutput "`n[5/6] APPLYING PERFORMANCE OPTIMIZATIONS..." "Cyan"
-
-    # Disable visual effects for performance
-    try {
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Type DWord -Value 2
-        Write-ColorOutput "Disabled visual effects for performance" "Green"
-    } catch { Write-Warning "Could not disable visual effects" }
-
-    # Disable tips and suggestions
-    try {
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Type DWord -Value 0
-        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Type DWord -Value 0
-        Write-ColorOutput "Disabled tips and suggestions" "Green"
-    } catch { Write-Warning "Could not disable tips" }
-
-    # FINAL SUMMARY
-    Write-ColorOutput "`n[6/6] CLEANUP AND FINALIZING..." "Cyan"
-
-    Write-ColorOutput "`n=== DEBLOATING COMPLETE ===" "Green"
-    Write-ColorOutput "Summary of actions taken:" "White"
-    Write-ColorOutput "- Removed all pre-installed bloatware apps" "White"
-    if ($RemoveStore) { Write-ColorOutput "- Removed Microsoft Store" "Red" } else { Write-ColorOutput "- Kept Microsoft Store" "Yellow" }
-    Write-ColorOutput "- Disabled telemetry and data collection" "White"
-    Write-ColorOutput "- Disabled unnecessary services" "White"
-    Write-ColorOutput "- Removed OneDrive completely" "White"
-    Write-ColorOutput "- Applied performance optimizations" "White"
-
-    if (-not $NoRestorePoint) {
-        Write-ColorOutput "`nA system restore point was created. You can revert if needed." "Green"
-    } else {
-        Write-ColorOutput "`nWARNING: No restore point was created!" "Red"
-    }
-
-    Write-ColorOutput "`nA system restart is recommended for all changes to take effect." "Yellow"
-    Write-ColorOutput "Press any key to exit..." "Gray"
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+# Add Store apps if RemoveStore is true
+if ($RemoveStore) {
+    $apps += "Microsoft.WindowsStore"
+    $apps += "Microsoft.StorePurchaseApp"
+    Write-Host "Microsoft Store will be removed" -ForegroundColor Red
+} else {
+    Write-Host "Microsoft Store will be kept" -ForegroundColor Green
 }
 
-# Execute the main function
-Invoke-Debloat
+foreach ($app in $apps) {
+    try {
+        Get-AppxPackage "*$app*" | Remove-AppxPackage -ErrorAction SilentlyContinue
+        Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*$app*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+        Write-Host "Removed: $app" -ForegroundColor Green
+    } catch {
+        Write-Host "Failed: $app" -ForegroundColor Red
+    }
+}
+
+# Disable services
+Write-Host "`nDisabling services..." -ForegroundColor Yellow
+$services = @("XboxGipSvc", "XboxNetApiSvc", "DiagTrack", "dmwappushservice")
+foreach ($service in $services) {
+    try {
+        Stop-Service $service -Force -ErrorAction SilentlyContinue
+        Set-Service $service -StartupType Disabled -ErrorAction SilentlyContinue
+        Write-Host "Disabled: $service" -ForegroundColor Green
+    } catch {
+        Write-Host "Failed to disable: $service" -ForegroundColor Red
+    }
+}
+
+# Remove OneDrive
+Write-Host "`nRemoving OneDrive..." -ForegroundColor Yellow
+taskkill /f /im OneDrive.exe > $null 2>&1
+Start-Sleep -Seconds 2
+
+# Final output
+Write-Host "`n=== DEBLOATING COMPLETE ===" -ForegroundColor Green
+Write-Host "Summary:" -ForegroundColor White
+Write-Host "- Removed all bloatware apps" -ForegroundColor White
+Write-Host "- Removed OneDrive" -ForegroundColor White  
+Write-Host "- Disabled telemetry services" -ForegroundColor White
+if ($RemoveStore) { Write-Host "- REMOVED Microsoft Store" -ForegroundColor Red } else { Write-Host "- Kept Microsoft Store" -ForegroundColor Green }
+if (-not $NoRestorePoint) { Write-Host "- Created restore point" -ForegroundColor Green } else { Write-Host "- No restore point created" -ForegroundColor Yellow }
+
+Write-Host "`nPress any key to exit..." -ForegroundColor Gray
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
