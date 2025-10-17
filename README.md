@@ -22,10 +22,34 @@
 
     irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
 
-### ⚙️ Command Line Options
-- SafeMode	Limited changes for testing	$false
-- GamingMode	Preserves Xbox services	$false
-- CreateRestorePoint	Creates system restore point	$true
+# What Each Flag Does:
+SafeMode:
+
+- Removes only the most aggressive bloatware
+
+- Keeps essential Windows features
+
+- Less service optimization
+
+- Safer for beginners
+
+GamingMode:
+
+- Keeps all Xbox-related apps and services
+
+- Preserves Game Bar, Xbox app, gaming overlays
+
+- Still removes other bloatware
+
+- Ideal for gamers
+
+ CreateRestorePoint:$false:
+
+- Skips creating system restore point
+
+- Faster execution
+
+- Not recommended for first-time users
 
 # Gaming PC optimization 
     irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex -GamingMode
