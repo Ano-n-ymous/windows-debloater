@@ -5,29 +5,33 @@
     One-click aggressive debloater that removes all bloatware including Microsoft Store
 #>
 
-# Bypass execution policy
-Set-ExecutionPolicy Bypass -Scope Process -Force
-
-# Auto-elevate to administrator
+# Check if already running as admin, if not, relaunch as admin
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
-    Write-Host "Requesting Administrator privileges..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
+    Write-Host "This script requires Administrator privileges." -ForegroundColor Yellow
+    Write-Host "A UAC prompt will appear. Click YES to continue." -ForegroundColor Yellow
+    Write-Host "Waiting for elevation..." -ForegroundColor Yellow
     
+    # Relaunch as admin
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "powershell.exe"
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -Command `"irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/windows-debloater.ps1 | iex`""
     $psi.Verb = "runas"
     $psi.WindowStyle = "Normal"
     
     try {
         [System.Diagnostics.Process]::Start($psi) | Out-Null
-        exit
     } catch {
-        Write-Host "Failed to elevate! Run as Administrator manually." -ForegroundColor Red
-        timeout /t 5
-        exit
+        Write-Host "Failed to elevate! Please run PowerShell as Administrator manually." -ForegroundColor Red
     }
+    exit
 }
+
+# Now running as admin - continue with the script
+Write-Host "=== WINDOWS NUCLEAR DEBLOATER ===" -ForegroundColor Red
+Write-Host "Running as Administrator: YES" -ForegroundColor Green
+
+# Bypass execution policy
+Set-ExecutionPolicy Bypass -Scope Process -Force
 
 # Show confirmation window
 Add-Type -AssemblyName System.Windows.Forms
@@ -42,11 +46,11 @@ $result = [System.Windows.Forms.MessageBox]::Show(
 
 if ($result -ne "Yes") {
     Write-Host "Operation cancelled by user." -ForegroundColor Yellow
-    timeout /t 3
+    Write-Host "Press any key to exit..." -ForegroundColor Gray
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
     exit
 }
 
-Write-Host "=== WINDOWS NUCLEAR DEBLOATER ===" -ForegroundColor Red
 Write-Host "STARTING AGGRESSIVE DEBLOATING..." -ForegroundColor Red
 Write-Host "This will take a few minutes..." -ForegroundColor Yellow
 
@@ -132,15 +136,7 @@ $bloatware = @(
     "Instagram",
     "Twitter",
     "TikTok",
-    "RoyalRevolt",
-    
-    # Manufacturer bloat
-    "Acer*",
-    "Dell*",
-    "HP*", 
-    "Lenovo*",
-    "ASUS*",
-    "Toshiba*"
+    "RoyalRevolt"
 )
 
 $removedCount = 0
@@ -165,17 +161,7 @@ $services = @(
     "XboxNetApiSvc",       # Xbox
     "lfsvc",               # Geolocation
     "MapsBroker",          # Maps
-    "TabletInputService",  # Touch Keyboard
-    "WMPNetworkSvc",       # Windows Media Player
-    "PhoneSvc",            # Phone
-    "Spooler",             # Print Spooler (if no printer)
-    "Fax",                 # Fax
-    "MSiSCSI",             # iSCSI
-    "SstpSvc",             # SSTP
-    "RetailDemo",          # Retail Demo
-    "UmRdpService",        # Remote Desktop
-    "SessionEnv",          # Remote Desktop Config
-    "TermService"          # Remote Desktop Services
+    "TabletInputService"   # Touch Keyboard
 )
 
 foreach ($service in $services) {
@@ -195,22 +181,10 @@ try {
     taskkill /f /im OneDrive.exe > $null 2>&1
     taskkill /f /im FileCoAuth.exe > $null 2>&1
     
-    # Uninstall
-    if (Test-Path "$env:SystemRoot\System32\OneDriveSetup.exe") {
-        & "$env:SystemRoot\System32\OneDriveSetup.exe" /uninstall
-    }
-    if (Test-Path "$env:SystemRoot\SysWOW64\OneDriveSetup.exe") {
-        & "$env:SystemRoot\SysWOW64\OneDriveSetup.exe" /uninstall
-    }
-    
     # Remove folders
     Remove-Item "$env:LOCALAPPDATA\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$env:PROGRAMDATA\Microsoft OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$env:USERPROFILE\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
-    
-    # Remove from startup
-    Remove-Item "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
-    Remove-Item "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run" -Name "OneDrive" -ErrorAction SilentlyContinue
     
     Write-Host "✓ OneDrive completely removed" -ForegroundColor Green
 } catch {
@@ -221,11 +195,7 @@ try {
 Write-Host "`n[5/7] DISABLING TELEMETRY..." -ForegroundColor Cyan
 $telemetryRegs = @(
     @{Path="HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection"; Name="AllowTelemetry"; Value=0},
-    @{Path="HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\System"; Name="AllowTelemetry"; Value=0},
-    @{Path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"; Name="AllowTelemetry"; Value=0},
-    @{Path="HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat"; Name="AITEnable"; Value=0},
-    @{Path="HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat"; Name="DisableInventory"; Value=1},
-    @{Path="HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows"; Name="CEIPEnable"; Value=0}
+    @{Path="HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"; Name="AllowTelemetry"; Value=0}
 )
 
 foreach ($reg in $telemetryRegs) {
@@ -243,10 +213,7 @@ Write-Host "`n[6/7] DISABLING SCHEDULED TASKS..." -ForegroundColor Cyan
 $tasks = @(
     "Microsoft\Windows\Application Experience\Microsoft Compatibility Appraiser",
     "Microsoft\Windows\Application Experience\ProgramDataUpdater", 
-    "Microsoft\Windows\Customer Experience Improvement Program\*",
-    "Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector",
-    "Microsoft\Windows\Feedback\Siuf\DmClient",
-    "Microsoft\Windows\PI\Sqm-Tasks"
+    "Microsoft\Windows\Customer Experience Improvement Program\*"
 )
 
 foreach ($task in $tasks) {
@@ -261,15 +228,9 @@ foreach ($task in $tasks) {
 # PERFORMANCE OPTIMIZATIONS
 Write-Host "`n[7/7] PERFORMANCE OPTIMIZATIONS..." -ForegroundColor Cyan
 try {
-    # Disable visual effects
-    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Value 2 -ErrorAction SilentlyContinue
-    
     # Disable tips and ads
     Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Value 0 -ErrorAction SilentlyContinue
     Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Value 0 -ErrorAction SilentlyContinue
-    
-    # Disable advertising ID
-    Set-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo" -Name "DisabledByGroupPolicy" -Value 1 -ErrorAction SilentlyContinue
     
     Write-Host "✓ Performance optimizations applied" -ForegroundColor Green
 } catch {
@@ -281,7 +242,7 @@ Write-Host "`n" + "="*60 -ForegroundColor Green
 Write-Host "NUCLEAR DEBLOATING COMPLETE!" -ForegroundColor Green
 Write-Host "="*60 -ForegroundColor Green
 Write-Host "Removed $removedCount bloatware apps" -ForegroundColor White
-Write-Host "Disabled 17 services" -ForegroundColor White
+Write-Host "Disabled 8 services" -ForegroundColor White
 Write-Host "Removed OneDrive completely" -ForegroundColor White
 Write-Host "Disabled telemetry and data collection" -ForegroundColor White
 Write-Host "Disabled scheduled tasks" -ForegroundColor White
