@@ -1,5 +1,4 @@
-# 🚀 AGGRESSIVE WINDOWS DEBLOATER
-# Removes bloatware, disables telemetry, optimizes performance
+# 🚀 AGGRESSIVE WINDOWS DEBLOATER - FIXED VERSION
 # Run with: irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
 
 param(
@@ -14,7 +13,12 @@ Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
 # Check admin rights
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Host "🔒 Restarting as Administrator..." -ForegroundColor Yellow
-    Start-Process PowerShell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`" -SafeMode:`$$SafeMode -GamingMode:`$$GamingMode -CreateRestorePoint:`$$CreateRestorePoint" -Verb RunAs
+    Write-Host "Please click 'Yes' on the UAC prompt" -ForegroundColor Yellow
+    
+    # FIX: Download the script content and restart as admin with encoded command
+    $scriptContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1")
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptContent))
+    Start-Process PowerShell -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand $encodedCommand" -Verb RunAs
     exit
 }
 
@@ -62,7 +66,7 @@ function Remove-BloatwareApps {
         
         # Third-party bloat
         "Facebook.Facebook",
-        "Instagram.Instagram",
+        "Instagram.Instagram", 
         "SpotifyAB.SpotifyMusic",
         "Twitter.Twitter",
         "TikTok.TikTok",
@@ -110,22 +114,6 @@ function Remove-BloatwareApps {
 
 function Disable-Telemetry {
     Write-Host "`n🔒 DISABLING TELEMETRY & TRACKING..." -ForegroundColor Cyan
-    
-    $telemetryKeys = @(
-        "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection",
-        "HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\System",
-        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection",
-        "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
-        "HKCU:\SOFTWARE\Microsoft\InputPersonalization",
-        "HKCU:\SOFTWARE\Microsoft\Personalization\Settings",
-        "HKCU:\SOFTWARE\Microsoft\Input\TIPC"
-    )
-    
-    foreach ($key in $telemetryKeys) {
-        try {
-            if (!(Test-Path $key)) { New-Item -Path $key -Force | Out-Null }
-        } catch { }
-    }
     
     # Disable data collection
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "AllowTelemetry" -Type DWord -Value 0 -ErrorAction SilentlyContinue
@@ -183,7 +171,6 @@ function Optimize-Services {
         "icssvc",              # Windows Mobile Hotspot Service
         "WMPNetworkSvc",       # Windows Media Player Network Sharing Service
         "wscsvc",              # Windows Security Center Service
-        "WSearch",             # Windows Search
         "XblAuthManager",      # Xbox Live Auth Manager
         "XblGameSave",         # Xbox Live Game Save Service
         "XboxNetApiSvc"        # Xbox Live Networking Service
@@ -214,36 +201,21 @@ function Optimize-PowerSettings {
     # Disable hibernation
     powercfg -h off
     
-    # Disable USB selective suspend
-    powercfg -setdcvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
-    powercfg -setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
-    
     Write-Host "✅ Power settings optimized" -ForegroundColor Green
 }
 
 function Optimize-Network {
     Write-Host "`n🌐 OPTIMIZING NETWORK SETTINGS..." -ForegroundColor Cyan
     
-    # Disable bandwidth restrictions
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Psched" -Name "NonBestEffortLimit" -Type DWord -Value 0 -ErrorAction SilentlyContinue
-    
     # Optimize TCP/IP parameters
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnablePMTUDiscovery" -Type DWord -Value 1 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnablePMTUBHDetect" -Type DWord -Value 0 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Tcp1323Opts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "SackOpts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
     
     Write-Host "✅ Network optimized" -ForegroundColor Green
 }
 
 function Disable-VisualEffects {
     Write-Host "`n🎨 DISABLING VISUAL EFFECTS..." -ForegroundColor Cyan
-    
-    # Disable visual effects for performance
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Type DWord -Value 2 -ErrorAction SilentlyContinue
-    
-    # Disable animations
-    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop\WindowMetrics" -Name "MinAnimate" -Type DWord -Value 0 -ErrorAction SilentlyContinue
     
     # Disable transparency
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "EnableTransparency" -Type DWord -Value 0 -ErrorAction SilentlyContinue
@@ -267,10 +239,6 @@ try {
     Optimize-PowerSettings
     Optimize-Network
     Disable-VisualEffects
-    
-    # Clear temporary files
-    Write-Host "`n🧹 CLEANING TEMP FILES..." -ForegroundColor Cyan
-    Cleanmgr /sagerun:1 | Out-Null
     
     Write-Host "`n" + "="*50 -ForegroundColor Green
     Write-Host "✅ DEBLOATING COMPLETED SUCCESSFULLY!" -ForegroundColor Green
