@@ -1,9 +1,9 @@
-# 🚀 AGGRESSIVE WINDOWS DEBLOATER - FIXED VERSION
+# 🚀 AGGRESSIVE WINDOWS DEBLOATER - FIXED FLAGS VERSION
 # Run with: irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
 
 param(
-    [switch]$SafeMode = $false,
     [switch]$GamingMode = $false,
+    [switch]$SafeMode = $false,
     [switch]$CreateRestorePoint = $true,
     [switch]$RemoveStore = $false
 )
@@ -16,10 +16,15 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     Write-Host "🔒 Restarting as Administrator..." -ForegroundColor Yellow
     Write-Host "Please click 'Yes' on the UAC prompt" -ForegroundColor Yellow
     
-    # FIX: Download the script content and restart as admin with encoded command
-    $scriptContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1")
-    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptContent))
-    Start-Process PowerShell -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand $encodedCommand" -Verb RunAs
+    # Build the command with all flags
+    $command = "-ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1' | iex"
+    if ($GamingMode) { $command += " -GamingMode" }
+    if ($SafeMode) { $command += " -SafeMode" }
+    if (-not $CreateRestorePoint) { $command += " -CreateRestorePoint:`$false" }
+    if ($RemoveStore) { $command += " -RemoveStore" }
+    $command += "`""
+    
+    Start-Process PowerShell -ArgumentList $command -Verb RunAs
     exit
 }
 
@@ -28,15 +33,23 @@ Write-Host "   AGGRESSIVE WINDOWS DEBLOATER" -ForegroundColor Red
 Write-Host "   🚀 Performance + Privacy + Cleaning" -ForegroundColor Red
 Write-Host "=========================================" -ForegroundColor Red
 
+# Show active flags
+if ($GamingMode) { Write-Host "🎮 GAMING MODE: Xbox apps preserved" -ForegroundColor Cyan }
+if ($SafeMode) { Write-Host "🛡️ SAFE MODE: Limited changes" -ForegroundColor Yellow }
+if (-not $CreateRestorePoint) { Write-Host "⚡ NO RESTORE POINT: Faster execution" -ForegroundColor Magenta }
+if ($RemoveStore) { Write-Host "🛒 STORE REMOVAL: Microsoft Store will be removed" -ForegroundColor Red }
+
 # Create restore point
 if ($CreateRestorePoint) {
     try {
         Write-Host "`n📦 Creating system restore point..." -ForegroundColor Yellow
-        Checkpoint-Computer -Description "Pre-Debloater Restore Point" -RestorePointType "MODIFY_SETTINGS"
+        Checkpoint-Computer -Description "Pre-Debloater Restore Point" -RestorePointType "MODIFY_SETTINGS" -ErrorAction SilentlyContinue
         Write-Host "✅ Restore point created" -ForegroundColor Green
     } catch {
         Write-Host "⚠️  Could not create restore point" -ForegroundColor Yellow
     }
+} else {
+    Write-Host "`n⚡ Skipping restore point creation..." -ForegroundColor Magenta
 }
 
 function Remove-BloatwareApps {
@@ -102,6 +115,18 @@ function Remove-BloatwareApps {
         $bloatwareApps = $bloatwareApps | Where-Object { $_ -notlike "*Xbox*" }
     }
     
+    if ($SafeMode) {
+        Write-Host "🛡️ Safe Mode: Removing only major bloatware" -ForegroundColor Yellow
+        $safeApps = @(
+            "Microsoft.BingWeather", "Microsoft.GetHelp", "Microsoft.Getstarted",
+            "Microsoft.MicrosoftSolitaireCollection", "Microsoft.People",
+            "Microsoft.WindowsFeedbackHub", "Microsoft.YourPhone",
+            "Facebook.Facebook", "Instagram.Instagram", "Twitter.Twitter",
+            "TikTok.TikTok", "Netflix.Netflix", "CandyCrushSaga.CandyCrushSaga"
+        )
+        $bloatwareApps = $safeApps
+    }
+    
     foreach ($app in $bloatwareApps) {
         try {
             Get-AppxPackage -Name $app -AllUsers | Remove-AppxPackage -ErrorAction SilentlyContinue
@@ -127,16 +152,14 @@ function Remove-MicrosoftStore {
 function Disable-Telemetry {
     Write-Host "`n🔒 DISABLING TELEMETRY & TRACKING..." -ForegroundColor Cyan
     
-    # Disable data collection
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "AllowTelemetry" -Type DWord -Value 0 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Type DWord -Value 0 -ErrorAction SilentlyContinue
+    if (-not $SafeMode) {
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection" -Name "AllowTelemetry" -Type DWord -Value 0 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Type DWord -Value 0 -ErrorAction SilentlyContinue
+    }
     
-    # Disable tailored experiences
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "PreInstalledAppsEnabled" -Type DWord -Value 0 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "OemPreInstalledAppsEnabled" -Type DWord -Value 0 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SilentInstalledAppsEnabled" -Type DWord -Value 0 -ErrorAction SilentlyContinue
-    
-    # Disable advertising ID
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo" -Name "Enabled" -Type DWord -Value 0 -ErrorAction SilentlyContinue
     
     Write-Host "✅ Telemetry disabled" -ForegroundColor Green
@@ -146,51 +169,25 @@ function Optimize-Services {
     Write-Host "`n⚙️  OPTIMIZING SERVICES..." -ForegroundColor Cyan
     
     $servicesToDisable = @(
-        "DiagTrack",           # Connected User Experiences and Telemetry
-        "dmwappushservice",    # WAP Push Message Routing Service
-        "WSearch",             # Windows Search
-        "XboxGipSvc",          # Xbox Accessory Management
-        "XboxNetApiSvc",       # Xbox Live Networking Service
-        "TrkWks",              # Distributed Link Tracking Client
-        "Fax",                 # Fax Service
-        "MSiSCSI",             # Microsoft iSCSI Initiator Service
-        "WpcMonSvc",           # Parental Controls
-        "PhoneSvc",            # Phone Service
-        "TabletInputService",  # Touch Keyboard and Handwriting Panel Service
-        "lmhosts",             # TCP/IP NetBIOS Helper
-        "RemoteRegistry",      # Remote Registry
-        "SharedAccess",        # Internet Connection Sharing (ICS)
-        "lltdsvc",             # Link-Layer Topology Discovery Mapper
-        "PNRPAutoReg",         # Peer Name Resolution Protocol
-        "PNRPsvc",             # Peer Networking Grouping
-        "p2pimsvc",            # Peer Networking Identity Manager
-        "p2psvc",              # Peer Networking
-        "SessionEnv",          # Remote Desktop Configuration
-        "TermService",         # Remote Desktop Services
-        "UmRdpService",        # Remote Desktop Services UserMode Port Redirector
-        "RpcLocator",          # Remote Procedure Call (RPC) Locator
-        "RemoteAccess",        # Routing and Remote Access
-        "SensorDataService",   # Sensor Data Service
-        "SensrSvc",            # Sensor Monitoring Service
-        "SensorService",       # Sensor Service
-        "ScDeviceEnum",        # Smart Card Device Enumeration Service
-        "SCPolicySvc",         # Smart Card Removal Policy
-        "SNMPTRAP",            # SNMP Trap
-        "WFDSConMgrSvc",       # Wi-Fi Direct Services Connection Manager Service
-        "WbioSrvc",            # Windows Biometric Service
-        "FrameServer",         # Windows Camera Frame Server
-        "wisvc",               # Windows Insider Service
-        "icssvc",              # Windows Mobile Hotspot Service
-        "WMPNetworkSvc",       # Windows Media Player Network Sharing Service
-        "wscsvc",              # Windows Security Center Service
-        "XblAuthManager",      # Xbox Live Auth Manager
-        "XblGameSave",         # Xbox Live Game Save Service
-        "XboxNetApiSvc"        # Xbox Live Networking Service
+        "DiagTrack", "dmwappushservice", "WSearch", "XboxGipSvc", "XboxNetApiSvc",
+        "TrkWks", "Fax", "MSiSCSI", "WpcMonSvc", "PhoneSvc", "TabletInputService",
+        "lmhosts", "RemoteRegistry", "SharedAccess", "lltdsvc", "PNRPAutoReg",
+        "PNRPsvc", "p2pimsvc", "p2psvc", "SessionEnv", "TermService", "UmRdpService",
+        "RpcLocator", "RemoteAccess", "SensorDataService", "SensrSvc", "SensorService",
+        "ScDeviceEnum", "SCPolicySvc", "SNMPTRAP", "WFDSConMgrSvc", "WbioSrvc",
+        "FrameServer", "wisvc", "icssvc", "WMPNetworkSvc", "wscsvc", "XblAuthManager",
+        "XblGameSave", "XboxNetApiSvc"
     )
     
     if ($GamingMode) {
         Write-Host "🎮 Gaming Mode: Keeping Xbox services" -ForegroundColor Yellow
-        $servicesToDisable = $servicesToDisable | Where-Object { $_ -notlike "Xbox*" }
+        $servicesToDisable = $servicesToDisable | Where-Object { $_ -notlike "Xbox*" -and $_ -notlike "Xbl*" }
+    }
+    
+    if ($SafeMode) {
+        Write-Host "🛡️ Safe Mode: Disabling only critical services" -ForegroundColor Yellow
+        $safeServices = @("DiagTrack", "dmwappushservice", "WSearch", "RemoteRegistry")
+        $servicesToDisable = $safeServices
     }
     
     foreach ($service in $servicesToDisable) {
@@ -206,76 +203,59 @@ function Optimize-Services {
 
 function Optimize-PowerSettings {
     Write-Host "`n⚡ OPTIMIZING POWER SETTINGS..." -ForegroundColor Cyan
-    
-    # Set to high performance
     powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
-    
-    # Disable hibernation
-    powercfg -h off
-    
+    if (-not $SafeMode) {
+        powercfg -h off
+    }
     Write-Host "✅ Power settings optimized" -ForegroundColor Green
 }
 
 function Optimize-Network {
     Write-Host "`n🌐 OPTIMIZING NETWORK SETTINGS..." -ForegroundColor Cyan
-    
-    # Optimize TCP/IP parameters
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnablePMTUDiscovery" -Type DWord -Value 1 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Tcp1323Opts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
-    
+    if (-not $SafeMode) {
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "EnablePMTUDiscovery" -Type DWord -Value 1 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Tcp1323Opts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
+    }
     Write-Host "✅ Network optimized" -ForegroundColor Green
 }
 
 function Disable-VisualEffects {
     Write-Host "`n🎨 DISABLING VISUAL EFFECTS..." -ForegroundColor Cyan
-    
-    # Disable transparency
-    Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "EnableTransparency" -Type DWord -Value 0 -ErrorAction SilentlyContinue
-    
-    Write-Host "✅ Visual effects disabled" -ForegroundColor Green
+    if (-not $SafeMode) {
+        Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "EnableTransparency" -Type DWord -Value 0 -ErrorAction SilentlyContinue
+    }
+    Write-Host "✅ Visual effects optimized" -ForegroundColor Green
 }
 
 # MAIN EXECUTION
 try {
-    Write-Host "`n🚀 Starting aggressive debloating..." -ForegroundColor Yellow
+    Write-Host "`n🚀 Starting debloating process..." -ForegroundColor Yellow
     Write-Host "⚠️  This will take 2-5 minutes..." -ForegroundColor Yellow
-    
-    if ($SafeMode) {
-        Write-Host "🛡️  Safe Mode: Limited changes" -ForegroundColor Yellow
-    }
-    if ($GamingMode) {
-        Write-Host "🎮 Gaming Mode: Keeping Xbox apps" -ForegroundColor Yellow
-    }
-    if ($RemoveStore) {
-        Write-Host "🛒 Store Removal: Microsoft Store will be removed" -ForegroundColor Yellow
-    }
     
     # Execute all functions
     Remove-BloatwareApps
+    if ($RemoveStore) {
+        Remove-MicrosoftStore
+    }
     Disable-Telemetry
     Optimize-Services
     Optimize-PowerSettings
     Optimize-Network
     Disable-VisualEffects
     
-    # Remove Microsoft Store if flag is set
-    if ($RemoveStore) {
-        Remove-MicrosoftStore
-    }
-    
     Write-Host "`n" + "="*50 -ForegroundColor Green
     Write-Host "✅ DEBLOATING COMPLETED SUCCESSFULLY!" -ForegroundColor Green
     Write-Host "="*50 -ForegroundColor Green
     
     Write-Host "`n🎯 Changes made:" -ForegroundColor Cyan
-    Write-Host "   • Removed 50+ bloatware apps" -ForegroundColor White
-    Write-Host "   • Disabled telemetry & tracking" -ForegroundColor White
-    Write-Host "   • Optimized 30+ services" -ForegroundColor White
-    Write-Host "   • Enhanced power & network settings" -ForegroundColor White
-    Write-Host "   • Disabled visual effects for performance" -ForegroundColor White
+    Write-Host "   • Removed bloatware apps" -ForegroundColor White
     if ($RemoveStore) {
         Write-Host "   • Removed Microsoft Store completely" -ForegroundColor White
     }
+    Write-Host "   • Disabled telemetry & tracking" -ForegroundColor White
+    Write-Host "   • Optimized services" -ForegroundColor White
+    Write-Host "   • Enhanced power & network settings" -ForegroundColor White
+    Write-Host "   • Disabled visual effects for performance" -ForegroundColor White
     
     Write-Host "`n🔄 Please restart your computer for all changes to take effect!" -ForegroundColor Yellow
     
