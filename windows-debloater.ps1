@@ -2,19 +2,19 @@
 .SYNOPSIS
     Windows Ultimate Debloater - 100% Working Version
 .DESCRIPTION
-    Usage: irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1?RemoveStore&NoRestorePoint" | iex
+    Usage: irm "https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/windows-debloater.ps1?RemoveStore&NoRestorePoint" | iex
 #>
 
 # Bypass execution policy
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
-# Get the URL that was used to download this script
-$webClient = New-Object System.Net.WebClient
-$url = $webClient.ResponseHeaders['X-Request-Url']
-
-# If we can't get the URL, try alternative method
-if (-not $url) {
-    $url = "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1"
+# Parse parameters from URL (using WebClient to get actual request URL)
+try {
+    $webClient = New-Object System.Net.WebClient
+    $url = $webClient.ResponseHeaders['X-Request-Url']
+    if (-not $url) { $url = "" }
+} catch {
+    $url = ""
 }
 
 # Parse parameters from URL
