@@ -4,7 +4,8 @@
 param(
     [switch]$SafeMode = $false,
     [switch]$GamingMode = $false,
-    [switch]$CreateRestorePoint = $true
+    [switch]$CreateRestorePoint = $true,
+    [switch]$RemoveStore = $false
 )
 
 # Bypass execution policy
@@ -109,6 +110,17 @@ function Remove-BloatwareApps {
         } catch {
             Write-Host "   ❌ Failed: $app" -ForegroundColor Red
         }
+    }
+}
+
+function Remove-MicrosoftStore {
+    Write-Host "`n🛒 REMOVING MICROSOFT STORE..." -ForegroundColor Cyan
+    try {
+        Get-AppxPackage -Name "Microsoft.WindowsStore" -AllUsers | Remove-AppxPackage -ErrorAction SilentlyContinue
+        Get-AppxProvisionedPackage -Online | Where-Object DisplayName -Like "Microsoft.WindowsStore" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+        Write-Host "✅ Microsoft Store removed completely" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Failed to remove Microsoft Store" -ForegroundColor Red
     }
 }
 
@@ -231,6 +243,12 @@ try {
     if ($SafeMode) {
         Write-Host "🛡️  Safe Mode: Limited changes" -ForegroundColor Yellow
     }
+    if ($GamingMode) {
+        Write-Host "🎮 Gaming Mode: Keeping Xbox apps" -ForegroundColor Yellow
+    }
+    if ($RemoveStore) {
+        Write-Host "🛒 Store Removal: Microsoft Store will be removed" -ForegroundColor Yellow
+    }
     
     # Execute all functions
     Remove-BloatwareApps
@@ -239,6 +257,11 @@ try {
     Optimize-PowerSettings
     Optimize-Network
     Disable-VisualEffects
+    
+    # Remove Microsoft Store if flag is set
+    if ($RemoveStore) {
+        Remove-MicrosoftStore
+    }
     
     Write-Host "`n" + "="*50 -ForegroundColor Green
     Write-Host "✅ DEBLOATING COMPLETED SUCCESSFULLY!" -ForegroundColor Green
@@ -250,6 +273,9 @@ try {
     Write-Host "   • Optimized 30+ services" -ForegroundColor White
     Write-Host "   • Enhanced power & network settings" -ForegroundColor White
     Write-Host "   • Disabled visual effects for performance" -ForegroundColor White
+    if ($RemoveStore) {
+        Write-Host "   • Removed Microsoft Store completely" -ForegroundColor White
+    }
     
     Write-Host "`n🔄 Please restart your computer for all changes to take effect!" -ForegroundColor Yellow
     
