@@ -1,4 +1,4 @@
-# 🚀 ULTIMATE WINDOWS 10/11 DEBLOATER - ENHANCED VERSION
+# 🚀 ULTIMATE WINDOWS 10/11 DEBLOATER - FIXED ADMIN VERSION
 # Run with: irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
 
 # Bypass everything
@@ -12,22 +12,9 @@ if (-not $isAdmin) {
     Write-Host "Please run PowerShell as Administrator and execute the command again" -ForegroundColor Yellow
     Write-Host "Or click 'Yes' if you see a UAC prompt" -ForegroundColor Yellow
     
-    # Download script content
-    $url = "https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1"
-    $scriptContent = (Invoke-RestMethod -Uri $url)
-    
-    # Encode and restart as admin - FIXED to keep window open
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptContent))
-    $process = Start-Process PowerShell -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand $encoded -NoExit" -Verb RunAs -PassThru -Wait
-    
-    if ($process.ExitCode -eq 0) {
-        exit
-    }
-    
-    # If we get here, the admin process didn't start properly
-    Write-Host "❌ Failed to start as administrator. Please run PowerShell as Admin manually." -ForegroundColor Red
-    Write-Host "Press any key to exit..." -ForegroundColor Gray
-    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    # FIXED: Simple restart as admin without complex encoding
+    $currentCommand = "irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex"
+    Start-Process PowerShell -ArgumentList "-Command", $currentCommand -Verb RunAs
     exit
 }
 
@@ -233,9 +220,6 @@ function Optimize-Network {
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "Tcp1323Opts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "SackOpts" -Type DWord -Value 1 -ErrorAction SilentlyContinue
     
-    # Disable Nagle's algorithm for better responsiveness
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces" -Name "TcpAckFrequency" -Type DWord -Value 1 -ErrorAction SilentlyContinue
-    
     Write-Host "✅ Network optimized" -ForegroundColor Green
 }
 
@@ -244,7 +228,6 @@ function Optimize-UX {
     
     # Disable animations for speed
     Set-ItemProperty -Path "HKCU:\Control Panel\Desktop\WindowMetrics" -Name "MinAnimate" -Type String -Value "0" -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Type DWord -Value 2 -ErrorAction SilentlyContinue
     
     # Disable tips and suggestions
     Set-ItemProperty -Path "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Type DWord -Value 0 -ErrorAction SilentlyContinue
@@ -308,18 +291,6 @@ function Clean-System {
     # Clean temp files
     Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-    
-    # Clean browser caches
-    Remove-Item -Path "$env:LOCALAPPDATA\Google\Chrome\User Data\Default\Cache\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Cache\*" -Recurse -Force -ErrorAction SilentlyContinue
-    
-    # Clean Windows Update cache
-    Stop-Service -Name "wuauserv" -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path "C:\Windows\SoftwareDistribution\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Start-Service -Name "wuauserv" -ErrorAction SilentlyContinue
-    
-    # Clean prefetch
-    Remove-Item -Path "C:\Windows\Prefetch\*" -Recurse -Force -ErrorAction SilentlyContinue
     
     Write-Host "✅ System cleaned" -ForegroundColor Green
 }
