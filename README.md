@@ -35,6 +35,8 @@
 
 # Full aggressive debloat
     irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
+# Full aggressive debloat No Restore Point:
+    irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex -CreateRestorePoint:$false
 
   # 📋 What Gets Removed?
 🎮 Microsoft Apps
