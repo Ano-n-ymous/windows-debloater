@@ -51,6 +51,9 @@ GamingMode:
 
 - Not recommended for first-time users
 
+# Full aggressive debloat with Microsoft Store removed and no restore point(Perfect for experienced users who want maximum control and speed):
+    irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex -RemoveStore -CreateRestorePoint:$false
+
 # Gaming PC optimization 
     irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex -GamingMode
 
