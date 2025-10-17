@@ -6,18 +6,13 @@
     for maximum system performance. Use with caution!
 #>
 
-# Parse parameters from command line when using irm | iex
+# Parse parameters from command line
 $RemoveStore = $false
 $NoRestorePoint = $false
 
-# Check command line arguments
 foreach ($arg in $args) {
-    if ($arg -eq "-RemoveStore" -or $arg -eq "RemoveStore") {
-        $RemoveStore = $true
-    }
-    if ($arg -eq "-NoRestorePoint" -or $arg -eq "NoRestorePoint") {
-        $NoRestorePoint = $true
-    }
+    if ($arg -eq "-RemoveStore") { $RemoveStore = $true }
+    if ($arg -eq "-NoRestorePoint") { $NoRestorePoint = $true }
 }
 
 # Function to write colored output
@@ -101,58 +96,58 @@ function Invoke-Debloat {
 
     $BloatwareApps = @(
         # Microsoft Store and related (conditional removal)
-        "Microsoft.WindowsStore*",
-        "Microsoft.StorePurchaseApp*",
-        "Microsoft.Services.Store.Engagement*",
+        "Microsoft.WindowsStore",
+        "Microsoft.StorePurchaseApp",
+        "Microsoft.Services.Store.Engagement",
         
         # Communication & Social
-        "Microsoft.People*",
-        "Microsoft.SkypeApp*",
-        "Microsoft.Teams*",
-        "Facebook*",
-        "Twitter*",
-        "Instagram*",
-        "Spotify*",
+        "Microsoft.People",
+        "Microsoft.SkypeApp",
+        "Microsoft.Teams",
+        "Facebook",
+        "Twitter",
+        "Instagram", 
+        "Spotify",
         
         # Entertainment
-        "Microsoft.ZuneMusic*",
-        "Microsoft.ZuneVideo*",
-        "Microsoft.WindowsSoundRecorder*",
-        "Microsoft.MicrosoftSolitaireCollection*",
-        "Microsoft.BingWeather*",
-        "Microsoft.BingNews*",
-        "Microsoft.BingSports*",
-        "Microsoft.Getstarted*",
-        "Microsoft.GetHelp*",
+        "Microsoft.ZuneMusic",
+        "Microsoft.ZuneVideo",
+        "Microsoft.WindowsSoundRecorder",
+        "Microsoft.MicrosoftSolitaireCollection",
+        "Microsoft.BingWeather",
+        "Microsoft.BingNews",
+        "Microsoft.BingSports",
+        "Microsoft.Getstarted",
+        "Microsoft.GetHelp",
         
         # Xbox
-        "Microsoft.XboxApp*",
-        "Microsoft.XboxGamingOverlay*",
-        "Microsoft.XboxGameOverlay*",
-        "Microsoft.XboxIdentityProvider*",
-        "Microsoft.XboxSpeechToTextOverlay*",
-        "Microsoft.XboxTCUI*",
+        "Microsoft.XboxApp",
+        "Microsoft.XboxGamingOverlay",
+        "Microsoft.XboxGameOverlay",
+        "Microsoft.XboxIdentityProvider",
+        "Microsoft.XboxSpeechToTextOverlay",
+        "Microsoft.XboxTCUI",
         
         # Cortana
-        "Microsoft.549981C3F5F10*",
-        "Microsoft.Cortana*",
+        "Microsoft.549981C3F5F10",
+        "Microsoft.Cortana",
         
         # Other Microsoft
-        "Microsoft.WindowsCamera*",
-        "Microsoft.WindowsMaps*",
-        "Microsoft.WindowsAlarms*",
-        "Microsoft.WindowsCalculator*",
-        "Microsoft.WindowsFeedbackHub*",
-        "Microsoft.MSPaint*",
-        "Microsoft.Microsoft3DViewer*",
-        "Microsoft.MixedReality.Portal*",
+        "Microsoft.WindowsCamera",
+        "Microsoft.WindowsMaps",
+        "Microsoft.WindowsAlarms",
+        "Microsoft.WindowsCalculator",
+        "Microsoft.WindowsFeedbackHub",
+        "Microsoft.MSPaint",
+        "Microsoft.Microsoft3DViewer",
+        "Microsoft.MixedReality.Portal",
         
         # Third-party bloat
-        "AdobeSystemsIncorporated.AdobePhotoshopExpress*",
-        "CandyCrush*",
-        "Disney*",
-        "Netflix*",
-        "Royal Revolt*"
+        "AdobeSystemsIncorporated.AdobePhotoshopExpress",
+        "CandyCrush",
+        "Disney",
+        "Netflix",
+        "Royal Revolt"
     )
 
     # Remove conditionally based on $RemoveStore flag
@@ -177,8 +172,11 @@ function Invoke-Debloat {
         try {
             if (!(Test-Path $Key)) { New-Item -Path $Key -Force | Out-Null }
             Set-ItemProperty -Path $Key -Name "AllowTelemetry" -Type DWord -Value 0
+            Write-ColorOutput "Disabled telemetry: $Key" "Green"
         }
-        catch { Write-Warning "Could not disable telemetry at: $Key" }
+        catch { 
+            Write-Warning "Could not disable telemetry at: $Key"
+        }
     }
 
     # SERVICES DISABLING
@@ -186,7 +184,7 @@ function Invoke-Debloat {
 
     $ServicesToDisable = @(
         "DiagTrack",
-        "dmwappushservice",
+        "dmwappushservice", 
         "WSearch",
         "XboxGipSvc",
         "XboxNetApiSvc",
@@ -200,23 +198,39 @@ function Invoke-Debloat {
     Write-ColorOutput "`n[4/6] REMOVING ONEDRIVE..." "Cyan"
 
     try {
+        Write-ColorOutput "Stopping OneDrive processes..." "Yellow"
         taskkill /f /im OneDrive.exe /t 2>&1 | Out-Null
+        Start-Sleep -Seconds 2
+        
+        Write-ColorOutput "Removing OneDrive files..." "Yellow"
         Remove-Item -Path "$env:LOCALAPPDATA\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$env:USERPROFILE\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$env:PROGRAMDATA\Microsoft OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
+        
         Write-ColorOutput "OneDrive removed completely" "Green"
     }
     catch {
-        Write-Warning "OneDrive removal partially failed"
+        Write-Warning "OneDrive removal partially failed: $($_.Exception.Message)"
     }
 
     # PERFORMANCE OPTIMIZATIONS
     Write-ColorOutput "`n[5/6] APPLYING PERFORMANCE OPTIMIZATIONS..." "Cyan"
 
     # Disable visual effects for performance
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Type DWord -Value 2
+    try {
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name "VisualFXSetting" -Type DWord -Value 2
+        Write-ColorOutput "Disabled visual effects for performance" "Green"
+    } catch { Write-Warning "Could not disable visual effects" }
 
     # Disable tips and suggestions
-    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Type DWord -Value 0
+    try {
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SubscribedContent-338387Enabled" -Type DWord -Value 0
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager" -Name "SystemPaneSuggestionsEnabled" -Type DWord -Value 0
+        Write-ColorOutput "Disabled tips and suggestions" "Green"
+    } catch { Write-Warning "Could not disable tips" }
+
+    # FINAL SUMMARY
+    Write-ColorOutput "`n[6/6] CLEANUP AND FINALIZING..." "Cyan"
 
     Write-ColorOutput "`n=== DEBLOATING COMPLETE ===" "Green"
     Write-ColorOutput "Summary of actions taken:" "White"
@@ -234,6 +248,8 @@ function Invoke-Debloat {
     }
 
     Write-ColorOutput "`nA system restart is recommended for all changes to take effect." "Yellow"
+    Write-ColorOutput "Press any key to exit..." "Gray"
+    $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
 # Execute the main function
