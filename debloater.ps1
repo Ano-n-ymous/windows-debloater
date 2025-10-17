@@ -1,30 +1,48 @@
-# 🚀 AGGRESSIVE WINDOWS DEBLOATER - FIXED FLAGS VERSION
-# Run with: irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex
-
-param(
-    [switch]$GamingMode = $false,
-    [switch]$SafeMode = $false,
-    [switch]$CreateRestorePoint = $true,
-    [switch]$RemoveStore = $false
-)
+# 🚀 AGGRESSIVE WINDOWS DEBLOATER - WORKING FLAGS VERSION
+# Run with: irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1 | iex -GamingMode
 
 # Bypass execution policy
 Set-ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
+
+# Parse command line arguments manually
+$GamingMode = $false
+$SafeMode = $false
+$CreateRestorePoint = $true
+$RemoveStore = $false
+
+foreach ($arg in $args) {
+    switch -Wildcard ($arg) {
+        "-GamingMode" { $GamingMode = $true }
+        "-SafeMode" { $SafeMode = $true }
+        "-CreateRestorePoint:*" { 
+            if ($arg -eq "-CreateRestorePoint:`$false") { $CreateRestorePoint = $false }
+        }
+        "-RemoveStore" { $RemoveStore = $true }
+    }
+}
 
 # Check admin rights
 if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
     Write-Host "🔒 Restarting as Administrator..." -ForegroundColor Yellow
     Write-Host "Please click 'Yes' on the UAC prompt" -ForegroundColor Yellow
     
-    # Build the command with all flags
-    $command = "-ExecutionPolicy Bypass -Command `"irm 'https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1' | iex"
-    if ($GamingMode) { $command += " -GamingMode" }
-    if ($SafeMode) { $command += " -SafeMode" }
-    if (-not $CreateRestorePoint) { $command += " -CreateRestorePoint:`$false" }
-    if ($RemoveStore) { $command += " -RemoveStore" }
-    $command += "`""
+    # Build arguments for restart
+    $newArgs = @()
+    if ($GamingMode) { $newArgs += "-GamingMode" }
+    if ($SafeMode) { $newArgs += "-SafeMode" }
+    if (-not $CreateRestorePoint) { $newArgs += "-CreateRestorePoint:`$false" }
+    if ($RemoveStore) { $newArgs += "-RemoveStore" }
     
-    Start-Process PowerShell -ArgumentList $command -Verb RunAs
+    # Download script and restart with arguments
+    $scriptContent = (Invoke-RestMethod -Uri "https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/debloater.ps1")
+    $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($scriptContent))
+    
+    $argumentList = "-ExecutionPolicy Bypass -EncodedCommand $encodedCommand"
+    if ($newArgs.Count -gt 0) {
+        $argumentList += " -Args '" + ($newArgs -join " ") + "'"
+    }
+    
+    Start-Process PowerShell -ArgumentList $argumentList -Verb RunAs
     exit
 }
 
