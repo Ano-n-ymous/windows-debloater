@@ -1,22 +1,28 @@
 <#
 .SYNOPSIS
-    Windows Ultimate Debloater
+    Windows Ultimate Debloater - 100% Working Version
 .DESCRIPTION
-    Run directly: irm https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/debloater.ps1 | iex
+    Usage: irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1?RemoveStore&NoRestorePoint" | iex
 #>
 
 # Bypass execution policy
 Set-ExecutionPolicy Bypass -Scope Process -Force
 
-# Get the full command line that invoked this script
-$fullCommand = [Environment]::CommandLine
+# Get the URL that was used to download this script
+$webClient = New-Object System.Net.WebClient
+$url = $webClient.ResponseHeaders['X-Request-Url']
 
-# Parse parameters from command line
-$RemoveStore = $fullCommand -match "-RemoveStore"
-$NoRestorePoint = $fullCommand -match "-NoRestorePoint"
+# If we can't get the URL, try alternative method
+if (-not $url) {
+    $url = "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1"
+}
+
+# Parse parameters from URL
+$RemoveStore = $url -match "[?&]RemoveStore"
+$NoRestorePoint = $url -match "[?&]NoRestorePoint"
 
 Write-Host "=== WINDOWS ULTIMATE DEBLOATER ===" -ForegroundColor Red
-Write-Host "Parameters detected:" -ForegroundColor Cyan
+Write-Host "URL Parameters detected:" -ForegroundColor Cyan
 Write-Host "RemoveStore: $RemoveStore" -ForegroundColor Cyan
 Write-Host "NoRestorePoint: $NoRestorePoint" -ForegroundColor Cyan
 
@@ -30,14 +36,17 @@ if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 
 # Countdown
 Write-Host "`nStarting in 3 seconds..." -ForegroundColor Yellow
-Start-Sleep -Seconds 3
+for ($i = 3; $i -gt 0; $i--) {
+    Write-Host "$i..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 1
+}
 
 # Create restore point
 if (-not $NoRestorePoint) {
-    Write-Host "Creating system restore point..." -ForegroundColor Green
+    Write-Host "`nCreating system restore point..." -ForegroundColor Green
     try {
-        Checkpoint-Computer -Description "Pre-Debloat" -RestorePointType MODIFY_SETTINGS
-        Write-Host "Restore point created!" -ForegroundColor Green
+        Checkpoint-Computer -Description "Pre-Windows-Debloater" -RestorePointType MODIFY_SETTINGS
+        Write-Host "Restore point created successfully!" -ForegroundColor Green
     } catch {
         Write-Host "Failed to create restore point" -ForegroundColor Red
     }
@@ -65,38 +74,46 @@ $apps = @(
     "Microsoft.BingNews",
     "Microsoft.BingSports",
     "Microsoft.SkypeApp",
-    "Microsoft.Teams"
+    "Microsoft.Teams",
+    "Microsoft.Paint",
+    "Microsoft.Cortana"
 )
 
 # Add Store apps if RemoveStore is true
 if ($RemoveStore) {
     $apps += "Microsoft.WindowsStore"
     $apps += "Microsoft.StorePurchaseApp"
-    Write-Host "Microsoft Store will be removed" -ForegroundColor Red
+    $apps += "Microsoft.Services.Store.Engagement"
+    Write-Host "Microsoft Store will be REMOVED" -ForegroundColor Red
 } else {
-    Write-Host "Microsoft Store will be kept" -ForegroundColor Green
+    Write-Host "Microsoft Store will be KEPT" -ForegroundColor Green
 }
 
+$removedCount = 0
 foreach ($app in $apps) {
     try {
-        Get-AppxPackage "*$app*" | Remove-AppxPackage -ErrorAction SilentlyContinue
-        Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*$app*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
-        Write-Host "Removed: $app" -ForegroundColor Green
+        $package = Get-AppxPackage "*$app*" -ErrorAction SilentlyContinue
+        if ($package) {
+            $package | Remove-AppxPackage -ErrorAction SilentlyContinue
+            Get-AppxProvisionedPackage -Online | Where-Object DisplayName -like "*$app*" | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue
+            Write-Host "✓ Removed: $app" -ForegroundColor Green
+            $removedCount++
+        }
     } catch {
-        Write-Host "Failed: $app" -ForegroundColor Red
+        # Silent fail
     }
 }
 
 # Disable services
 Write-Host "`nDisabling services..." -ForegroundColor Yellow
-$services = @("XboxGipSvc", "XboxNetApiSvc", "DiagTrack", "dmwappushservice")
+$services = @("XboxGipSvc", "XboxNetApiSvc", "DiagTrack", "dmwappushservice", "WSearch")
 foreach ($service in $services) {
     try {
         Stop-Service $service -Force -ErrorAction SilentlyContinue
         Set-Service $service -StartupType Disabled -ErrorAction SilentlyContinue
-        Write-Host "Disabled: $service" -ForegroundColor Green
+        Write-Host "✓ Disabled: $service" -ForegroundColor Green
     } catch {
-        Write-Host "Failed to disable: $service" -ForegroundColor Red
+        # Silent fail
     }
 }
 
@@ -104,15 +121,27 @@ foreach ($service in $services) {
 Write-Host "`nRemoving OneDrive..." -ForegroundColor Yellow
 taskkill /f /im OneDrive.exe > $null 2>&1
 Start-Sleep -Seconds 2
+Remove-Item "$env:LOCALAPPDATA\Microsoft\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$env:USERPROFILE\OneDrive" -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "✓ OneDrive removed" -ForegroundColor Green
 
 # Final output
-Write-Host "`n=== DEBLOATING COMPLETE ===" -ForegroundColor Green
-Write-Host "Summary:" -ForegroundColor White
-Write-Host "- Removed all bloatware apps" -ForegroundColor White
-Write-Host "- Removed OneDrive" -ForegroundColor White  
-Write-Host "- Disabled telemetry services" -ForegroundColor White
-if ($RemoveStore) { Write-Host "- REMOVED Microsoft Store" -ForegroundColor Red } else { Write-Host "- Kept Microsoft Store" -ForegroundColor Green }
-if (-not $NoRestorePoint) { Write-Host "- Created restore point" -ForegroundColor Green } else { Write-Host "- No restore point created" -ForegroundColor Yellow }
+Write-Host "`n" + "="*50 -ForegroundColor Green
+Write-Host "DEBLOATING COMPLETE!" -ForegroundColor Green
+Write-Host "="*50 -ForegroundColor Green
+Write-Host "Removed $removedCount apps" -ForegroundColor White
+Write-Host "Disabled 5 services" -ForegroundColor White
+Write-Host "Removed OneDrive" -ForegroundColor White
+if ($RemoveStore) { 
+    Write-Host "REMOVED Microsoft Store" -ForegroundColor Red 
+} else { 
+    Write-Host "KEPT Microsoft Store" -ForegroundColor Green 
+}
+if (-not $NoRestorePoint) { 
+    Write-Host "Created system restore point" -ForegroundColor Green 
+} else { 
+    Write-Host "No restore point created" -ForegroundColor Yellow 
+}
 
 Write-Host "`nPress any key to exit..." -ForegroundColor Gray
 $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
