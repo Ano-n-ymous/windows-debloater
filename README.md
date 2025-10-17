@@ -6,20 +6,18 @@ Aggressive Windows debloater for maximum performance.
 
 **Administrator PowerShell required:**
 
-# Remove everything including Microsoft Store (no restore point)
-    irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/windows-debloater.ps1 | iex -RemoveStore -NoRestorePoint
+# Remove everything INCLUDING Microsoft Store, NO restore point
+    irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1?RemoveStore&NoRestorePoint" | iex
 
-# Remove all bloatware but keep Microsoft Store
-    irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/windows-debloater.ps1 | iex
+# Remove everything INCLUDING Microsoft Store, WITH restore point  
+    irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1?RemoveStore" | iex
 
-# Remove all bloatware including Store
-    irm https://raw.githubusercontent.com/Ano-n-ymous/windows-debloater/main/windows-debloater.ps1 | iex -RemoveStore
+# Remove bloatware but KEEP Microsoft Store, NO restore point
+    irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1?NoRestorePoint" | iex
 
-Parameters
+# Remove bloatware but KEEP Microsoft Store, WITH restore point (DEFAULT)
+    irm "https://raw.githubusercontent.com/Amo-n-ymous/windows-debloater/main/windows-debloater.ps1" | iex
 
-  - RemoveStore: Removes Microsoft Store completely
-
-  - NoRestorePoint: Skips creating a system restore point
 
 Features
 
